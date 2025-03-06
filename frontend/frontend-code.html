@@ -78,6 +78,18 @@
             justify-content: center;
             align-items: center;
         }
+        .progress {
+            height: 20px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            background-color: #ff8c00;
+        }
+        #status-details {
+            margin-top: 10px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -114,6 +126,15 @@
                                 <input type="text" class="form-control" id="user-id" placeholder="Enter a Weibo user ID">
                             </div>
                             <div class="mb-3">
+                                <label for="max-count" class="form-label">Maximum Posts to Crawl</label>
+                                <input type="number" class="form-control" id="max-count" min="1" max="500" value="50" placeholder="Enter max number of posts">
+                                <small class="text-muted">Higher values will take longer to crawl</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="since-date" class="form-label">Posts Since Date</label>
+                                <input type="date" class="form-control" id="since-date" value="2023-01-01">
+                            </div>
+                            <div class="mb-3">
                                 <label for="n-value" class="form-label">N-gram Size</label>
                                 <select class="form-select" id="n-value">
                                     <option value="1">Unigrams</option>
@@ -134,9 +155,10 @@
                     </div>
                     <div class="card-body">
                         <p>1. Enter a keyword or Weibo user ID</p>
-                        <p>2. Select the N-gram size</p>
-                        <p>3. Click "Analyze" to start the process</p>
-                        <p>4. View the word cloud and N-gram analysis</p>
+                        <p>2. Set the maximum number of posts to crawl</p>
+                        <p>3. Select the date range and N-gram size</p>
+                        <p>4. Click "Analyze" to start the process</p>
+                        <p>5. View the word cloud and N-gram analysis</p>
                         <p class="text-muted"><small>Note: Crawling may take some time for popular topics or users with many posts.</small></p>
                     </div>
                 </div>
@@ -148,10 +170,51 @@
                 <div id="loading" class="text-center">
                     <div class="loader"></div>
                     <p id="status-message">Preparing to analyze...</p>
+                    <div class="progress d-none" id="progress-container">
+                        <div class="progress-bar" id="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <p id="status-details" class="text-muted"></p>
                 </div>
 
                 <!-- Results Container -->
                 <div id="results" class="result-container">
+                    <!-- Crawl Summary -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-list-check"></i> Crawl Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Search Term:</strong>
+                                        <span id="summary-search-term"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Posts Crawled:</strong>
+                                        <span id="summary-post-count"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Date Range:</strong>
+                                        <span id="summary-date-range"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Analysis Type:</strong>
+                                        <span id="summary-ngram-type"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Word Cloud -->
                     <div class="card">
                         <div class="card-header">
@@ -191,15 +254,26 @@
             const userInput = document.getElementById('user-input');
             const keywordField = document.getElementById('keyword');
             const userIdField = document.getElementById('user-id');
+            const maxCountField = document.getElementById('max-count');
+            const sinceDateField = document.getElementById('since-date');
             const nValue = document.getElementById('n-value');
             const loading = document.getElementById('loading');
             const loader = document.querySelector('.loader');
             const statusMessage = document.getElementById('status-message');
+            const statusDetails = document.getElementById('status-details');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
             const results = document.getElementById('results');
             const wordcloudImg = document.getElementById('wordcloud-img');
             const ngramResults = document.getElementById('ngram-results');
             const errorDiv = document.getElementById('error');
             const errorMessage = document.getElementById('error-message');
+
+            // Summary elements
+            const summarySearchTerm = document.getElementById('summary-search-term');
+            const summaryPostCount = document.getElementById('summary-post-count');
+            const summaryDateRange = document.getElementById('summary-date-range');
+            const summaryNgramType = document.getElementById('summary-ngram-type');
 
             // API endpoint
             const API_BASE_URL = 'http://localhost:5000/api';
@@ -218,13 +292,15 @@
             // Form submission
             searchForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
+
                 // Get search parameters
                 const isKeywordSearch = searchType.value === 'keyword';
                 const keyword = keywordField.value.trim();
                 const userId = userIdField.value.trim();
+                const maxCount = parseInt(maxCountField.value);
+                const sinceDate = sinceDateField.value;
                 const n = parseInt(nValue.value);
-                
+
                 // Validate input
                 if (isKeywordSearch && !keyword) {
                     showError('Please enter a keyword');
@@ -233,22 +309,46 @@
                     showError('Please enter a Weibo user ID');
                     return;
                 }
-                
+
+                if (isNaN(maxCount) || maxCount <= 0) {
+                    showError('Please enter a valid number for maximum posts');
+                    return;
+                }
+
                 // Reset UI
                 resetUI();
-                
+
                 // Show loading state
                 loader.style.display = 'block';
                 loading.style.display = 'block';
                 statusMessage.textContent = 'Starting to crawl Weibo data...';
-                
+                statusDetails.textContent = `This will crawl up to ${maxCount} posts since ${sinceDate}`;
+
+                // Artificial progress simulation for better UX
+                progressContainer.classList.remove('d-none');
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    // Slowly increase progress, but never reach 100% until we get the actual response
+                    if (progress < 90) {
+                        progress += (90 - progress) / 50;
+                        progressBar.style.width = `${progress}%`;
+                        progressBar.textContent = `${Math.round(progress)}%`;
+                        progressBar.setAttribute('aria-valuenow', Math.round(progress));
+                    }
+                }, 500);
+
                 try {
                     // Step 1: Crawl data
                     const crawlData = {
                         keyword: isKeywordSearch ? keyword : '',
-                        user_id: isKeywordSearch ? '' : userId
+                        user_id: isKeywordSearch ? '' : userId,
+                        max_count: maxCount,
+                        since_date: sinceDate
                     };
-                    
+
+                    statusMessage.textContent = 'Crawling Weibo data...';
+                    statusDetails.textContent = `Searching for ${isKeywordSearch ? 'keyword: ' + keyword : 'user ID: ' + userId}`;
+
                     const crawlResponse = await fetch(`${API_BASE_URL}/crawl`, {
                         method: 'POST',
                         headers: {
@@ -256,23 +356,31 @@
                         },
                         body: JSON.stringify(crawlData)
                     });
-                    
+
                     if (!crawlResponse.ok) {
                         throw new Error('Failed to crawl data');
                     }
-                    
+
                     const crawlResult = await crawlResponse.json();
                     const dataPath = crawlResult.data_path;
-                    
+                    const postCount = crawlResult.post_count || 0;
+
+                    // Update progress to 95%
+                    progress = 95;
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.textContent = `${Math.round(progress)}%`;
+                    progressBar.setAttribute('aria-valuenow', Math.round(progress));
+
                     // Step 2: Generate N-gram analysis
                     statusMessage.textContent = 'Analyzing N-grams...';
-                    
+                    statusDetails.textContent = `Processing ${postCount} posts with ${n}-gram analysis`;
+
                     const ngramData = {
                         data_path: dataPath,
                         n: n,
                         top_n: 20
                     };
-                    
+
                     const ngramResponse = await fetch(`${API_BASE_URL}/analyze/ngram`, {
                         method: 'POST',
                         headers: {
@@ -280,20 +388,20 @@
                         },
                         body: JSON.stringify(ngramData)
                     });
-                    
+
                     if (!ngramResponse.ok) {
                         throw new Error('Failed to analyze N-grams');
                     }
-                    
+
                     const ngramResult = await ngramResponse.json();
-                    
+
                     // Step 3: Generate word cloud
                     statusMessage.textContent = 'Generating word cloud...';
-                    
+
                     const wordcloudData = {
                         data_path: dataPath
                     };
-                    
+
                     const wordcloudResponse = await fetch(`${API_BASE_URL}/analyze/wordcloud`, {
                         method: 'POST',
                         headers: {
@@ -301,30 +409,58 @@
                         },
                         body: JSON.stringify(wordcloudData)
                     });
-                    
+
                     if (!wordcloudResponse.ok) {
                         throw new Error('Failed to generate word cloud');
                     }
-                    
+
                     const wordcloudResult = await wordcloudResponse.json();
-                    
+
+                    // Update progress to 100%
+                    progress = 100;
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.textContent = `${Math.round(progress)}%`;
+                    progressBar.setAttribute('aria-valuenow', Math.round(progress));
+
+                    // Clear progress interval
+                    clearInterval(progressInterval);
+
                     // Display results
-                    displayResults(ngramResult.data, wordcloudResult.image);
-                    
+                    displayResults(
+                        ngramResult.data,
+                        wordcloudResult.image,
+                        {
+                            searchTerm: isKeywordSearch ? keyword : userId,
+                            searchType: isKeywordSearch ? 'Keyword' : 'User ID',
+                            postCount: postCount,
+                            maxRequested: maxCount,
+                            sinceDate: sinceDate,
+                            ngramType: n === 1 ? 'Unigrams' : (n === 2 ? 'Bigrams' : 'Trigrams')
+                        }
+                    );
+
                 } catch (error) {
+                    clearInterval(progressInterval);
                     showError(error.message);
                 } finally {
                     // Hide loading state
                     loader.style.display = 'none';
                     loading.style.display = 'none';
+                    progressContainer.classList.add('d-none');
                 }
             });
-            
+
             // Display results
-            function displayResults(ngrams, wordcloudImage) {
+            function displayResults(ngrams, wordcloudImage, summary) {
+                // Update summary information
+                summarySearchTerm.textContent = `${summary.searchType}: ${summary.searchTerm}`;
+                summaryPostCount.textContent = `${summary.postCount} / ${summary.maxRequested} requested`;
+                summaryDateRange.textContent = `Since ${summary.sinceDate}`;
+                summaryNgramType.textContent = summary.ngramType;
+
                 // Display word cloud
                 wordcloudImg.src = `data:image/png;base64,${wordcloudImage}`;
-                
+
                 // Display N-grams
                 ngramResults.innerHTML = '';
                 ngrams.forEach((item, index) => {
@@ -336,26 +472,29 @@
                     `;
                     ngramResults.appendChild(ngramItem);
                 });
-                
+
                 // Show results container
                 results.style.display = 'block';
             }
-            
+
             // Show error message
             function showError(message) {
                 errorMessage.textContent = message;
                 errorDiv.classList.remove('d-none');
                 setTimeout(() => {
                     errorDiv.classList.add('d-none');
-                }, 5000);
+                }, 8000);
             }
-            
+
             // Reset UI
             function resetUI() {
                 errorDiv.classList.add('d-none');
                 results.style.display = 'none';
                 wordcloudImg.src = '';
                 ngramResults.innerHTML = '';
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+                progressBar.setAttribute('aria-valuenow', 0);
             }
         });
     </script>

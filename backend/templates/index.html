@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weibo Analysis Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container">
+            <h1><i class="bi bi-bar-chart-fill"></i> Weibo Analysis Dashboard</h1>
+            <p class="lead">Analyze Weibo content with N-grams and word clouds</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <!-- Input Form -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-search"></i> Search Parameters</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="search-form">
+                            <div class="mb-3">
+                                <label for="search-type" class="form-label">Search By</label>
+                                <select class="form-select" id="search-type">
+                                    <option value="keyword">Keyword</option>
+                                    <option value="user">User ID</option>
+                                </select>
+                            </div>
+                            <div class="mb-3" id="keyword-input">
+                                <label for="keyword" class="form-label">Keyword</label>
+                                <input type="text" class="form-control" id="keyword" placeholder="Enter a keyword">
+                            </div>
+                            <div class="mb-3 d-none" id="user-input">
+                                <label for="user-id" class="form-label">Weibo User ID</label>
+                                <input type="text" class="form-control" id="user-id" placeholder="Enter a Weibo user ID">
+                            </div>
+                            <div class="mb-3">
+                                <label for="max-count" class="form-label">Maximum Posts to Crawl</label>
+                                <input type="number" class="form-control" id="max-count" min="1" max="500" value="50" placeholder="Enter max number of posts">
+                                <small class="text-muted">Higher values will take longer to crawl</small>
+                            </div>
+                            <div class="mb-3">
+                                <label for="since-date" class="form-label">Posts Since Date</label>
+                                <input type="date" class="form-control" id="since-date" value="2023-01-01">
+                            </div>
+                            <div class="mb-3">
+                                <label for="n-value" class="form-label">N-gram Size</label>
+                                <select class="form-select" id="n-value">
+                                    <option value="1">Unigrams</option>
+                                    <option value="2" selected>Bigrams</option>
+                                    <option value="3">Trigrams</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search"></i> Analyze
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-info-circle"></i> Instructions</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>1. Enter a keyword or Weibo user ID</p>
+                        <p>2. Set the maximum number of posts to crawl</p>
+                        <p>3. Select the date range and N-gram size</p>
+                        <p>4. Click "Analyze" to start the process</p>
+                        <p>5. View the word cloud and N-gram analysis</p>
+                        <p class="text-muted"><small>Note: Crawling may take some time for popular topics or users with many posts.</small></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="col-md-8">
+                <!-- Loading Indicator -->
+                <div id="loading" class="text-center" style="display: none;">
+                    <div class="loader" style="display: block;"></div>
+                    <p id="status-message">Preparing to analyze...</p>
+                    <div class="progress" id="progress-container">
+                        <div class="progress-bar" id="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <p id="status-details" class="text-muted"></p>
+                </div>
+
+                <!-- Results Container -->
+                <div id="results" class="result-container">
+                    <!-- Crawl Summary - Shown on all pages -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-list-check"></i> Crawl Summary</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Search Term:</strong>
+                                        <span id="summary-search-term"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Posts Crawled:</strong>
+                                        <span id="summary-post-count"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Date Range:</strong>
+                                        <span id="summary-date-range"></span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <strong>Analysis Type:</strong>
+                                        <span id="summary-ngram-type"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Page 1: Time Series Analysis -->
+                    <div id="page-time-series" class="analysis-page">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-bar-chart-line"></i> Posts Over Time</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="time-series-chart" height="300"></canvas>
+                                <div id="no-time-data" class="alert alert-info mt-3" style="display: none;">
+                                    Not enough time data to display a chart.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button id="btn-to-wordcloud" class="btn btn-primary">
+                                Next: Word Cloud Analysis <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Page 2: Word Cloud and N-grams -->
+                    <div id="page-wordcloud" class="analysis-page" style="display: none;">
+                        <!-- Word Cloud -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-cloud"></i> Word Cloud</h5>
+                            </div>
+                            <div class="card-body text-center">
+                                <img id="wordcloud-img" src="" alt="Word Cloud">
+                            </div>
+                        </div>
+
+                        <!-- N-gram Analysis -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-graph-up"></i> Top N-grams</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="ngram-results" class="ngram-results"></div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button id="btn-to-time-series" class="btn btn-outline-secondary me-2">
+                                <i class="bi bi-arrow-left"></i> Previous
+                            </button>
+                            <button id="btn-to-top-posts" class="btn btn-primary">
+                                Next: Top Posts <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Page 3: Top Posts -->
+                    <div id="page-top-posts" class="analysis-page" style="display: none;">
+                        <!-- Top Posts by Likes -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-heart"></i> Most Liked Posts</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-attitudes-posts"></div>
+                            </div>
+                        </div>
+
+                        <!-- Top Posts by Comments -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-chat"></i> Most Commented Posts</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-comments-posts"></div>
+                            </div>
+                        </div>
+
+                        <!-- Top Posts by Reposts -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-share"></i> Most Reposted Posts</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-reposts-posts"></div>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button id="btn-to-wordcloud-from-top" class="btn btn-outline-secondary me-2">
+                                <i class="bi bi-arrow-left"></i> Previous
+                            </button>
+                            <button id="btn-to-summary" class="btn btn-primary">
+                                Next: Summary <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Page 4: Summary -->
+                    <div id="page-summary" class="analysis-page" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-info-circle"></i> Analysis Summary</h5>
+                            </div>
+                            <div class="card-body">
+                                <h4>Crawl Completed Successfully</h4>
+                                <p>Your Weibo data has been crawled and analyzed. The data is stored in the following location:</p>
+                                <div class="alert alert-success">
+                                    <i class="bi bi-folder"></i> <span id="data-location"></span>
+                                </div>
+                                <p>You can access this data for further analysis or export it to other tools.</p>
+
+                                <h5 class="mt-4">What's Next?</h5>
+                                <ul>
+                                    <li>Try different search terms to compare results</li>
+                                    <li>Adjust the date range to see how topics evolve over time</li>
+                                    <li>Use different n-gram sizes to discover different patterns</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="text-end mt-3">
+                            <button id="btn-to-top-posts-from-summary" class="btn btn-outline-secondary me-2">
+                                <i class="bi bi-arrow-left"></i> Previous
+                            </button>
+                            <button id="btn-new-analysis" class="btn btn-success">
+                                <i class="bi bi-plus-circle"></i> Start New Analysis
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Messages -->
+                <div id="error" class="alert alert-danger" style="display: none;" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i> <span id="error-message"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const searchForm = document.getElementById('search-form');
+            const searchType = document.getElementById('search-type');
+            const keywordInput = document.getElementById('keyword-input');
+            const userInput = document.getElementById('user-input');
+            const keywordField = document.getElementById('keyword');
+            const userIdField = document.getElementById('user-id');
+            const maxCountField = document.getElementById('max-count');
+            const sinceDateField = document.getElementById('since-date');
+            const nValue = document.getElementById('n-value');
+            const loading = document.getElementById('loading');
+            const statusMessage = document.getElementById('status-message');
+            const statusDetails = document.getElementById('status-details');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const results = document.getElementById('results');
+            const wordcloudImg = document.getElementById('wordcloud-img');
+            const ngramResults = document.getElementById('ngram-results');
+            const errorDiv = document.getElementById('error');
+            const errorMessage = document.getElementById('error-message');
+
+            // Summary elements
+            const summarySearchTerm = document.getElementById('summary-search-term');
+            const summaryPostCount = document.getElementById('summary-post-count');
+            const summaryDateRange = document.getElementById('summary-date-range');
+            const summaryNgramType = document.getElementById('summary-ngram-type');
+            const dataLocation = document.getElementById('data-location');
+
+            // Page navigation buttons
+            const btnToWordcloud = document.getElementById('btn-to-wordcloud');
+            const btnToTimeSeries = document.getElementById('btn-to-time-series');
+            const btnToTopPosts = document.getElementById('btn-to-top-posts');
+            const btnToWordcloudFromTop = document.getElementById('btn-to-wordcloud-from-top');
+            const btnToSummary = document.getElementById('btn-to-summary');
+            const btnToTopPostsFromSummary = document.getElementById('btn-to-top-posts-from-summary');
+            const btnNewAnalysis = document.getElementById('btn-new-analysis');
+
+            // Pages
+            const pageTimeSeries = document.getElementById('page-time-series');
+            const pageWordcloud = document.getElementById('page-wordcloud');
+            const pageTopPosts = document.getElementById('page-top-posts');
+            const pageSummary = document.getElementById('page-summary');
+
+            // Charts
+            let timeSeriesChart = null;
+
+            // URL for API requests - now points to our local server
+            const API_BASE_URL = window.location.origin;
+
+            // Toggle between keyword and user ID inputs
+            searchType.addEventListener('change', function() {
+                if (this.value === 'keyword') {
+                    keywordInput.classList.remove('d-none');
+                    userInput.classList.add('d-none');
+                } else {
+                    keywordInput.classList.add('d-none');
+                    userInput.classList.remove('d-none');
+                }
+            });
+
+            // Navigation event listeners
+            btnToWordcloud.addEventListener('click', function() {
+                showPage('wordcloud');
+            });
+
+            btnToTimeSeries.addEventListener('click', function() {
+                showPage('time-series');
+            });
+
+            btnToTopPosts.addEventListener('click', function() {
+                showPage('top-posts');
+            });
+
+            btnToWordcloudFromTop.addEventListener('click', function() {
+                showPage('wordcloud');
+            });
+
+            btnToSummary.addEventListener('click', function() {
+                showPage('summary');
+            });
+
+            btnToTopPostsFromSummary.addEventListener('click', function() {
+                showPage('top-posts');
+            });
+
+            btnNewAnalysis.addEventListener('click', function() {
+                resetUI();
+                results.style.display = 'none';
+                scrollToTop();
+            });
+
+            // Function to show specific page
+            function showPage(pageName) {
+                pageTimeSeries.style.display = pageName === 'time-series' ? 'block' : 'none';
+                pageWordcloud.style.display = pageName === 'wordcloud' ? 'block' : 'none';
+                pageTopPosts.style.display = pageName === 'top-posts' ? 'block' : 'none';
+                pageSummary.style.display = pageName === 'summary' ? 'block' : 'none';
+                scrollToTop();
+            }
+
+            function scrollToTop() {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            }
+
+            // Form submission
+            searchForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                // Get search parameters
+                const isKeywordSearch = searchType.value === 'keyword';
+                const keyword = keywordField.value.trim();
+                const userId = userIdField.value.trim();
+                const maxCount = parseInt(maxCountField.value);
+                const sinceDate = sinceDateField.value;
+                const n = parseInt(nValue.value);
+
+                // Validate input
+                if (isKeywordSearch && !keyword) {
+                    showError('Please enter a keyword');
+                    return;
+                } else if (!isKeywordSearch && !userId) {
+                    showError('Please enter a Weibo user ID');
+                    return;
+                }
+
+                if (isNaN(maxCount) || maxCount <= 0) {
+                    showError('Please enter a valid number for maximum posts');
+                    return;
+                }
+
+                // Reset UI
+                resetUI();
+
+                // Show loading state
+                loading.style.display = 'block';
+                statusMessage.textContent = 'Starting to crawl Weibo data...';
+                statusDetails.textContent = `This will crawl up to ${maxCount} posts since ${sinceDate}`;
+
+                // Artificial progress simulation for better UX
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    // Slowly increase progress, but never reach 100% until we get the actual response
+                    if (progress < 90) {
+                        progress += (90 - progress) / 50;
+                        progressBar.style.width = `${progress}%`;
+                        progressBar.textContent = `${Math.round(progress)}%`;
+                        progressBar.setAttribute('aria-valuenow', Math.round(progress));
+                    }
+                }, 500);
+
+                try {
+                    // Step 1: Crawl data
+                    const crawlData = {
+                        keyword: isKeywordSearch ? keyword : '',
+                        user_id: isKeywordSearch ? '' : userId,
+                        max_count: maxCount,
+                        since_date: sinceDate,
+                        n: n
+                    };
+
+                    statusMessage.textContent = 'Crawling and analyzing Weibo data...';
+                    statusDetails.textContent = `Searching for ${isKeywordSearch ? 'keyword: ' + keyword : 'user ID: ' + userId}`;
+
+                    // Send the request to our local API endpoint
+                    const response = await fetch(`${API_BASE_URL}/api/analyze`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(crawlData)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to analyze data: ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+
+                    // Update progress to 100%
+                    progress = 100;
+                    progressBar.style.width = `${progress}%`;
+                    progressBar.textContent = `${Math.round(progress)}%`;
+                    progressBar.setAttribute('aria-valuenow', Math.round(progress));
+
+                    // Clear progress interval
+                    clearInterval(progressInterval);
+
+                    // Display results
+                    displayResults(
+                        result.ngrams,
+                        result.wordcloud_image,
+                        result.time_series,
+                        result.top_posts,
+                        result.output_dir,
+                        {
+                            searchTerm: isKeywordSearch ? keyword : userId,
+                            searchType: isKeywordSearch ? 'Keyword' : 'User ID',
+                            postCount: result.post_count,
+                            maxRequested: maxCount,
+                            sinceDate: sinceDate,
+                            ngramType: n === 1 ? 'Unigrams' : (n === 2 ? 'Bigrams' : 'Trigrams')
+                        }
+                    );
+
+                } catch (error) {
+                    clearInterval(progressInterval);
+                    showError(error.message);
+                } finally {
+                    // Hide loading state
+                    loading.style.display = 'none';
+                }
+            });
+
+            // Display results
+            function displayResults(ngrams, wordcloudImage, timeSeriesData, topPosts, outputDir, summary) {
+                // Update summary information
+                summarySearchTerm.textContent = `${summary.searchType}: ${summary.searchTerm}`;
+                summaryPostCount.textContent = `${summary.postCount} / ${summary.maxRequested} requested`;
+                summaryDateRange.textContent = `Since ${summary.sinceDate}`;
+                summaryNgramType.textContent = summary.ngramType;
+                dataLocation.textContent = outputDir;
+
+                // Display word cloud
+                wordcloudImg.src = `data:image/png;base64,${wordcloudImage}`;
+
+                // Display N-grams
+                ngramResults.innerHTML = '';
+
+                if (ngrams.length === 0) {
+                    ngramResults.innerHTML = '<div class="alert alert-info">No significant n-grams found after filtering common words.</div>';
+                } else {
+                    ngrams.forEach((item, index) => {
+                        const ngramItem = document.createElement('div');
+                        ngramItem.className = 'ngram-item';
+                        ngramItem.innerHTML = `
+                            <div class="ngram-text">${item.ngram}</div>
+                            <div class="ngram-count">${item.count}</div>
+                        `;
+                        ngramResults.appendChild(ngramItem);
+                    });
+                }
+
+                // Display time series chart
+                displayTimeSeriesChart(timeSeriesData);
+
+                // Display top posts
+                displayTopPosts(topPosts);
+
+                // Show results container and first page
+                results.style.display = 'block';
+                showPage('time-series');
+            }
+
+            // Display time series chart
+            function displayTimeSeriesChart(timeSeriesData) {
+                const timeSeriesCanvas = document.getElementById('time-series-chart');
+                const noTimeDataAlert = document.getElementById('no-time-data');
+
+                // If we already have a chart, destroy it
+                if (timeSeriesChart) {
+                    timeSeriesChart.destroy();
+                }
+
+                if (!timeSeriesData || timeSeriesData.length < 2) {
+                    timeSeriesCanvas.style.display = 'none';
+                    noTimeDataAlert.style.display = 'block';
+                    return;
+                }
+
+                noTimeDataAlert.style.display = 'none';
+                timeSeriesCanvas.style.display = 'block';
+
+                // Prepare data for Chart.js
+                const labels = timeSeriesData.map(item => item.date);
+                const counts = timeSeriesData.map(item => item.count);
+
+                // Create chart
+                timeSeriesChart = new Chart(timeSeriesCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Posts Count',
+                            data: counts,
+                            backgroundColor: 'rgba(255, 140, 0, 0.7)',
+                            borderColor: 'rgba(255, 140, 0, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Posts'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Display top posts
+            function displayTopPosts(topPosts) {
+                const topAttitudesContainer = document.getElementById('top-attitudes-posts');
+                const topCommentsContainer = document.getElementById('top-comments-posts');
+                const topRepostsContainer = document.getElementById('top-reposts-posts');
+
+                // Clear containers
+                topAttitudesContainer.innerHTML = '';
+                topCommentsContainer.innerHTML = '';
+                topRepostsContainer.innerHTML = '';
+
+                // Display top posts by attitudes (likes)
+                if (topPosts.top_attitudes && topPosts.top_attitudes.length > 0) {
+                    topPosts.top_attitudes.forEach(post => {
+                        const postElement = createPostElement(post, 'heart', 'attitudes_count');
+                        topAttitudesContainer.appendChild(postElement);
+                    });
+                } else {
+                    topAttitudesContainer.innerHTML = '<div class="alert alert-info">No posts data available.</div>';
+                }
+
+                // Display top posts by comments
+                if (topPosts.top_comments && topPosts.top_comments.length > 0) {
+                    topPosts.top_comments.forEach(post => {
+                        const postElement = createPostElement(post, 'chat', 'comments_count');
+                        topCommentsContainer.appendChild(postElement);
+                    });
+                } else {
+                    topCommentsContainer.innerHTML = '<div class="alert alert-info">No posts data available.</div>';
+                }
+
+                // Display top posts by reposts
+                if (topPosts.top_reposts && topPosts.top_reposts.length > 0) {
+                    topPosts.top_reposts.forEach(post => {
+                        const postElement = createPostElement(post, 'share', 'reposts_count');
+                        topRepostsContainer.appendChild(postElement);
+                    });
+                } else {
+                    topRepostsContainer.innerHTML = '<div class="alert alert-info">No posts data available.</div>';
+                }
+            }
+
+            // Create post element
+            function createPostElement(post, primaryIconType, primaryMetric) {
+                const postElement = document.createElement('div');
+                postElement.className = 'post-item';
+
+                // Truncate text if too long
+                let displayText = post.text;
+                if (displayText.length > 200) {
+                    displayText = displayText.substring(0, 200) + '...';
+                }
+
+                postElement.innerHTML = `
+                    <div class="post-text">${displayText}</div>
+                    <div class="engagement-stats">
+                        <div class="engagement-item">
+                            <i class="bi bi-heart"></i> ${post.attitudes_count}
+                        </div>
+                        <div class="engagement-item">
+                            <i class="bi bi-chat"></i> ${post.comments_count}
+                        </div>
+                        <div class="engagement-item">
+                            <i class="bi bi-share"></i> ${post.reposts_count}
+                        </div>
+                    </div>
+                `;
+
+                // Highlight primary metric
+                if (primaryMetric === 'attitudes_count') {
+                    postElement.querySelector('.bi-heart').parentNode.style.fontWeight = 'bold';
+                } else if (primaryMetric === 'comments_count') {
+                    postElement.querySelector('.bi-chat').parentNode.style.fontWeight = 'bold';
+                } else if (primaryMetric === 'reposts_count') {
+                    postElement.querySelector('.bi-share').parentNode.style.fontWeight = 'bold';
+                }
+
+                return postElement;
+            }
+
+            // Show error message
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorDiv.style.display = 'block';
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 8000);
+            }
+
+            // Reset UI
+            function resetUI() {
+                errorDiv.style.display = 'none';
+                results.style.display = 'none';
+                wordcloudImg.src = '';
+                ngramResults.innerHTML = '';
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+                progressBar.setAttribute('aria-valuenow', 0);
+
+                // Reset charts
+                if (timeSeriesChart) {
+                    timeSeriesChart.destroy();
+                    timeSeriesChart = null;
+                }
+
+                // Reset top posts
+                document.getElementById('top-attitudes-posts').innerHTML = '';
+                document.getElementById('top-comments-posts').innerHTML = '';
+                document.getElementById('top-reposts-posts').innerHTML = '';
+            }
+        });
+    </script>
+</body>
+</html>

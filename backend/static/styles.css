@@ -1,0 +1,149 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+.dashboard-header {
+    background-color: #ff8c00;
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 30px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    transition: transform 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card-header {
+    background-color: #ff8c00;
+    color: white;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.btn-primary {
+    background-color: #ff8c00;
+    border-color: #ff8c00;
+}
+
+.btn-primary:hover {
+    background-color: #e67e00;
+    border-color: #e67e00;
+}
+
+.loader {
+    border: 5px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 5px solid #ff8c00;
+    width: 50px;
+    height: 50px;
+    animation: spin 2s linear infinite;
+    margin: 20px auto;
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#wordcloud-img {
+    max-width: 100%;
+    height: auto;
+}
+
+.result-container {
+    display: none;
+}
+
+.ngram-results {
+    padding: 10px 0;
+}
+
+.ngram-item {
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.ngram-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ngram-text {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.ngram-count {
+    background-color: #ff8c00;
+    color: white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(255, 140, 0, 0.3);
+}
+
+.progress {
+    height: 20px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.progress-bar {
+    background-color: #ff8c00;
+}
+
+.analysis-page {
+    transition: all 0.3s ease;
+}
+
+.post-item {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #ff8c00;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.post-text {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.engagement-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.engagement-item {
+    display: flex;
+    align-items: center;
+    margin-right: 15px;
+}
+
+.engagement-item i {
+    margin-right: 5px;
+    color: #ff8c00;
+}

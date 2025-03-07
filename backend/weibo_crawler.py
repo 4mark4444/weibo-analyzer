@@ -75,7 +75,7 @@ class WeiboCrawler:
         # Default headers for requests
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36",
-            "Cookie": ""  # Add your cookie here if needed
+            "Cookie": "SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWjzj_UCrywbgWzT6-GE6Ax5NHD95QN1Kqcehq7ShM0Ws4DqcjMi--NiK.Xi-2Ri--ciKnRi-zNS0.cSo5cehBNe7tt; SCF=AvMSbnlFncPNHGORx_mJtaaeEpVIAAJKU3ywF4F9CMi6oNdpw6lkISo7ALrkIIK4SSCyphzfcv-BID8FtvoYa5Y.; SUB=_2A25KzrfEDeRhGeFH7VQR9i7IzD-IHXVppbUMrDV6PUJbktANLVnukW1NeqZ3bTLimm_pq1CUVALTIlhSx4wHjIQG; SSOLoginState=1741342612; ALF=1743934612; _T_WM=89850250169; XSRF-TOKEN=b5771a; WEIBOCN_FROM=1110006030; MLOGIN=1; M_WEIBOCN_PARAMS=luicode%3D20000174%26uicode%3D20000174"  # Add your cookie here if needed
         }
         
         # Initialize state variables
